@@ -5,12 +5,11 @@
 #   Reset everything:  ./reset.sh
 #
 
-name: supabase
+name: supabase-staging
 
 services:
 
   studio:
-    container_name: supabase-studio
     image: supabase/studio:2026.03.16-sha-5528817
     restart: unless-stopped
     healthcheck:
@@ -69,7 +68,6 @@ services:
       - ./volumes/functions:/app/edge-functions:Z
 
   kong:
-    container_name: supabase-kong
     image: kong/kong:3.9.1
     restart: unless-stopped
     networks:
@@ -81,12 +79,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    depends_on:
-      studio:
-        condition: service_healthy
+#    depends_on:
+#      studio:
+#        condition: service_healthy
     ports:
-      - ${KONG_HTTP_PORT}:8000/tcp
-      - ${KONG_HTTPS_PORT}:8443/tcp
+      - 8001:8000/tcp
+      - 8444:8443/tcp
     volumes:
       # https://github.com/supabase/supabase/issues/12661
       - ./volumes/api/kong.yml:/home/kong/temp.yml:ro,z
@@ -94,6 +92,7 @@ services:
       #- ./volumes/api/server.crt:/home/kong/server.crt:ro
       #- ./volumes/api/server.key:/home/kong/server.key:ro
     environment:
+      KONG_NGINX_WORKER_PROCESSES: "1"
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /usr/local/kong/kong.yml
       # https://github.com/supabase/cli/issues/14
@@ -116,7 +115,6 @@ services:
     entrypoint: /home/kong/kong-entrypoint.sh
 
   auth:
-    container_name: supabase-auth
     image: supabase/gotrue:v2.186.0
     restart: unless-stopped
     healthcheck:
@@ -243,7 +241,6 @@ services:
       # GOTRUE_HOOK_SEND_EMAIL_SECRETS: "v1,whsec_VGhpcyBpcyBhbiBleGFtcGxlIG9mIGEgc2hvcnRlciBCYXNlNjQgc3RyaW5n"
 
   rest:
-    container_name: supabase-rest
     image: postgrest/postgrest:v14.6
     restart: unless-stopped
     depends_on:
@@ -266,54 +263,52 @@ services:
         "postgrest"
       ]
 
-  realtime:
+#  realtime:
     # This container name looks inconsistent but is correct because realtime constructs tenant id by parsing the subdomain
-    container_name: realtime-dev.supabase-realtime
-    image: supabase/realtime:v2.76.5
-    restart: unless-stopped
-    depends_on:
-      db:
+#    image: supabase/realtime:v2.76.5
+#    restart: unless-stopped
+#    depends_on:
+#      db:
         # Disable this if you are using an external Postgres database
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -sSfL --head -o /dev/null -H \"Authorization: Bearer ${ANON_KEY}\" http://localhost:4000/api/tenants/realtime-dev/health"
-        ]
-      timeout: 5s
-      interval: 30s
-      retries: 3
-      start_period: 10s
-    environment:
-      PORT: 4000
-      DB_HOST: ${POSTGRES_HOST}
-      DB_PORT: ${POSTGRES_PORT}
-      DB_USER: supabase_admin
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
-      DB_NAME: ${POSTGRES_DB}
-      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
-      DB_ENC_KEY: supabaserealtime
+#        condition: service_healthy
+#    healthcheck:
+#      test:
+#        [
+#          "CMD-SHELL",
+#          "curl -sSfL --head -o /dev/null -H \"Authorization: Bearer ${ANON_KEY}\" http://localhost:4000/api/tenants/realtime-dev/health"
+#        ]
+#      timeout: 5s
+#      interval: 30s
+#      retries: 3
+#      start_period: 10s
+#    environment:
+#      PORT: 4000
+#      DB_HOST: ${POSTGRES_HOST}
+#      DB_PORT: ${POSTGRES_PORT}
+#      DB_USER: supabase_admin
+#      DB_PASSWORD: ${POSTGRES_PASSWORD}
+#      DB_NAME: ${POSTGRES_DB}
+#      DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
+#      DB_ENC_KEY: supabaserealtime
 
       # Legacy symmetric HS256 key
-      API_JWT_SECRET: ${JWT_SECRET}
+#      API_JWT_SECRET: ${JWT_SECRET}
 
       # JWKS for token verification (EC public + legacy symmetric)
       #API_JWT_JWKS: ${JWT_JWKS:-{"keys":[]}}
 
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      METRICS_JWT_SECRET: ${JWT_SECRET}
-      ERL_AFLAGS: -proto_dist inet_tcp
-      DNS_NODES: "''"
-      RLIMIT_NOFILE: "10000"
-      APP_NAME: realtime
-      SEED_SELF_HOST: "true"
-      RUN_JANITOR: "true"
-      DISABLE_HEALTHCHECK_LOGGING: "true"
+#      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+#      METRICS_JWT_SECRET: ${JWT_SECRET}
+#      ERL_AFLAGS: -proto_dist inet_tcp
+#      DNS_NODES: "''"
+#      RLIMIT_NOFILE: "10000"
+#      APP_NAME: realtime
+#      SEED_SELF_HOST: "true"
+#      RUN_JANITOR: "true"
+#      DISABLE_HEALTHCHECK_LOGGING: "true"
 
   # To use S3 backed storage: docker compose -f docker-compose.yml -f docker-compose.s3.yml up
   storage:
-    container_name: supabase-storage
     image: supabase/storage-api:v1.44.2
     restart: unless-stopped
     depends_on:
@@ -375,7 +370,6 @@ services:
       - ./volumes/storage:/var/lib/storage:z
 
   imgproxy:
-    container_name: supabase-imgproxy
     image: darthsim/imgproxy:v3.30.1
     restart: unless-stopped
     volumes:
@@ -398,7 +392,6 @@ services:
       IMGPROXY_MAX_SRC_RESOLUTION: 16.8
 
   meta:
-    container_name: supabase-meta
     image: supabase/postgres-meta:v0.95.2
     restart: unless-stopped
     depends_on:
@@ -415,7 +408,6 @@ services:
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
   functions:
-    container_name: supabase-edge-functions
     image: supabase/edge-runtime:v1.71.2
     restart: unless-stopped
     volumes:
@@ -446,7 +438,6 @@ services:
       ]
 
   analytics:
-    container_name: supabase-analytics
     image: supabase/logflare:1.31.2
     restart: unless-stopped
     # ports:
@@ -494,7 +485,6 @@ services:
 
   # Comment out everything below this point if you are using an external Postgres database
   db:
-    container_name: supabase-db
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
     volumes:
@@ -548,7 +538,6 @@ services:
       ]
 
   vector:
-    container_name: supabase-vector
     image: timberio/vector:0.53.0-alpine
     restart: unless-stopped
     volumes:
@@ -579,11 +568,10 @@ services:
 
   # Update the DATABASE_URL if you are using an external Postgres database
   supavisor:
-    container_name: supabase-pooler
     image: supabase/supavisor:2.7.4
     restart: unless-stopped
     ports:
-      - ${POSTGRES_PORT}:5432
+      - 5433:5432
       - ${POOLER_PROXY_PORT_TRANSACTION}:6543
     volumes:
       - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
