@@ -392,7 +392,7 @@ services:
       IMGPROXY_MAX_SRC_RESOLUTION: 16.8
 
   meta:
-    image: supabase/postgres-meta:v0.95.2
+    image: supabase/postgres-meta:v0.96.0
     restart: unless-stopped
     depends_on:
       db:
